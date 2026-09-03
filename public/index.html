@@ -1103,8 +1103,6 @@ const S = {
   trades: [],
   tradeId: 0,
   niftyPrev: 0,
-  lastNotifiedCapture: Number(localStorage.getItem('niftyLastCapture') || 0),
-  lastLiveNotificationAt: 0,
 };
 
 const RISK = 15;
@@ -1444,35 +1442,6 @@ function addFeed(msg, cls='f-muted'){
   while(feed.children.length>60) feed.removeChild(feed.lastChild);
 }
 
-async function enableNotifications(){
-  if(!('Notification' in window)) return false;
-  if(Notification.permission === 'default') await Notification.requestPermission();
-  return Notification.permission === 'granted';
-}
-
-function notifyMarket(spot, previousSpot, marketPulse){
-  if(!('Notification' in window) || Notification.permission !== 'granted') return;
-  const captures = Array.isArray(marketPulse?.captures) ? marketPulse.captures : [];
-  const latest = captures[captures.length - 1];
-  if(latest && latest.number > S.lastNotifiedCapture){
-    new Notification(`NIFTY ${latest.direction} ${Math.abs(latest.movePoints).toFixed(2)} points`, {
-      body: `50-point capture #${latest.number} saved at ${latest.toTime || '--'} IST`,
-      tag: 'nifty-50-point-capture',
-    });
-    S.lastNotifiedCapture = latest.number;
-    localStorage.setItem('niftyLastCapture', String(latest.number));
-  }
-
-  const now = Date.now();
-  if(now - S.lastLiveNotificationAt < 15000) return;
-  const movement = previousSpot ? spot - previousSpot : 0;
-  new Notification(`NIFTY 50  ${spot.toFixed(2)}`, {
-    body: previousSpot ? `${movement >= 0 ? '▲' : '▼'} ${Math.abs(movement).toFixed(2)} points since last update` : 'Live market data connected',
-    tag: 'nifty-live-price',
-  });
-  S.lastLiveNotificationAt = now;
-}
-
 // ============================================================
 //  REFRESH BAR
 // ============================================================
@@ -1510,7 +1479,6 @@ async function scan(){
     const chgEl = document.getElementById('niftyChange');
     chgEl.textContent = `${chg>=0?'▲':'▼'} ${Math.abs(chg)} (${Math.abs(chgPct)}%)`;
     chgEl.style.color = chg>=0?'var(--green)':'var(--red)';
-    notifyMarket(spot, previousSpot, marketPulse);
     S.niftyPrev = spot;
 
     // ATM bar
@@ -1553,7 +1521,6 @@ async function scan(){
 // ============================================================
 async function startAlgo(){
   if(S.running) return;
-  await enableNotifications();
   S.running=true;
   document.getElementById('btnStart').disabled=true;
   document.getElementById('btnStop').disabled=false;
