@@ -709,11 +709,14 @@ app.listen(PORT, async () => {
   console.log(`[${new Date().toISOString()}] Server started on port ${PORT}`);
   console.log(`Dashboard: http://localhost:${PORT}`);
 
-  await loadMaster();
+  try {
+    await loadMaster();
 
-  // Login on startup
-  const ok = await angelLogin();
-  if (!ok) {
-    console.error('STARTUP LOGIN FAILED — Check your .env credentials');
+    const ok = await angelLogin();
+    if (!ok) {
+      console.warn('Angel login failed on startup. Dashboard will still load, but live market data requires valid credentials in .env.');
+    }
+  } catch (error) {
+    console.warn('Startup initialization warning:', error.message || 'Unknown startup issue');
   }
 });
