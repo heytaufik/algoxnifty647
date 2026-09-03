@@ -807,6 +807,43 @@
   }
 }
 
+@media (max-width: 430px) {
+  body { background-image: radial-gradient(ellipse at 50% 0%, rgba(0,100,180,0.12), transparent 48%); }
+  .header { padding: 0 10px; }
+  .header-inner { padding: 9px 0 10px; gap: 8px; }
+  .brand { gap: 8px; }
+  .brand-logo { width: 30px; height: 30px; }
+  .brand-text { font-size: 17px; letter-spacing: 2px; }
+  .brand-sub { font-size: 6px; letter-spacing: 2px; }
+  .header-center { padding: 7px 10px; background: rgba(0,212,255,0.04); border: 1px solid rgba(0,212,255,0.12); }
+  .nifty-value { font-size: 23px; }
+  .market-status { min-width: 118px; justify-content: center; }
+  .header-right { padding: 0; align-items: flex-end; }
+  .algo-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; gap:6px; }
+  .algo-controls .btn { width:100%; text-align:center; padding:8px 4px; font-size:9px; letter-spacing:1px; }
+  .algo-status { line-height:1.5; padding:6px 10px; }
+  .market-closed-banner { margin: 0 8px 8px; line-height:1.5; }
+  .main { padding: 8px; gap: 10px; }
+  .glass-padded { padding: 12px; }
+  .atm-info { justify-content:space-between; gap:4px; padding:9px 6px; }
+  .atm-info > div[style] { display:none !important; }
+  .atm-item { min-width:0; flex:1; }
+  .atm-item-label { font-size:7px; letter-spacing:1px; }
+  .atm-item-value { font-size:12px; }
+  .strike-card { padding: 11px; }
+  .strike-type-row { margin-bottom:7px; }
+  .strike-price { margin-bottom:8px; }
+  .metrics-grid { gap:5px; }
+  .metric { min-width:0; padding:6px 7px; }
+  .metric-label { letter-spacing:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .metric-value { font-size:12px; overflow-wrap:anywhere; }
+  .metric-note { font-size:8px; }
+  .signal-summary { grid-template-columns:1fr; gap:6px; }
+  .summary-item { padding:8px 10px; }
+  .section-title { letter-spacing:2px; }
+  .right-col .glass-padded { padding:12px; }
+}
+
 /* PRINT */
 @media print {
   body {
@@ -1066,6 +1103,8 @@ const S = {
   trades: [],
   tradeId: 0,
   niftyPrev: 0,
+  lastNotifiedCapture: Number(localStorage.getItem('niftyLastCapture') || 0),
+  lastLiveNotificationAt: 0,
 };
 
 const RISK = 15;
@@ -1169,6 +1208,10 @@ function formatIndianUnits(value){
   return `${(amount / 100000).toFixed(2)} Lakh`;
 }
 
+function formatQuantity(value){
+  return Math.round(Number(value) || 0).toLocaleString('en-IN');
+}
+
 function getTierOiDifference(options, tier){
   const ce = options.find(opt => opt.tier === tier && opt.type === 'CE');
   const pe = options.find(opt => opt.tier === tier && opt.type === 'PE');
@@ -1203,15 +1246,26 @@ function renderPairComparison(options, tier){
   return `<div class="pair-comparison">
     <div class="pair-comparison-title">${tier==='atm'?'ATM':'ITM'} CE vs PE LIVE COMPARISON</div>
     <div class="pair-comparison-row"><span class="pair-comparison-label">OI</span><span class="pair-ce">CE ${formatIndianUnits(ce.oi)}</span><span class="pair-pe">PE ${formatIndianUnits(pe.oi)}</span><span class="pair-difference">${comparisonText(Number(ce.oi)||0, Number(pe.oi)||0, formatIndianUnits)}</span></div>
-    <div class="pair-comparison-row"><span class="pair-comparison-label">BID QTY</span><span class="pair-ce">CE ${formatIndianUnits(ce.bidQty)}</span><span class="pair-pe">PE ${formatIndianUnits(pe.bidQty)}</span><span class="pair-difference">${comparisonText(Number(ce.bidQty)||0, Number(pe.bidQty)||0, formatIndianUnits)}</span></div>
-    <div class="pair-comparison-row"><span class="pair-comparison-label">ASK QTY</span><span class="pair-ce">CE ${formatIndianUnits(ce.askQty)}</span><span class="pair-pe">PE ${formatIndianUnits(pe.askQty)}</span><span class="pair-difference">${comparisonText(Number(ce.askQty)||0, Number(pe.askQty)||0, formatIndianUnits)}</span></div>
-    <div class="pair-comparison-row"><span class="pair-comparison-label">B/A</span><span class="pair-ce">CE ${bidAskRelation(ce.bidQty || 0, ce.askQty || 0)}<br>B:${formatIndianUnits(ce.bidQty)} A:${formatIndianUnits(ce.askQty)}</span><span class="pair-pe">PE ${bidAskRelation(pe.bidQty || 0, pe.askQty || 0)}<br>B:${formatIndianUnits(pe.bidQty)} A:${formatIndianUnits(pe.askQty)}</span><span class="pair-difference">Ratio: CE ${ceRatio.toFixed(2)} | PE ${peRatio.toFixed(2)}</span></div>
+    <div class="pair-comparison-row"><span class="pair-comparison-label">BID QTY</span><span class="pair-ce">CE ${formatQuantity(ce.bidQty)}</span><span class="pair-pe">PE ${formatQuantity(pe.bidQty)}</span><span class="pair-difference">${comparisonText(Number(ce.bidQty)||0, Number(pe.bidQty)||0, formatQuantity)}</span></div>
+    <div class="pair-comparison-row"><span class="pair-comparison-label">ASK QTY</span><span class="pair-ce">CE ${formatQuantity(ce.askQty)}</span><span class="pair-pe">PE ${formatQuantity(pe.askQty)}</span><span class="pair-difference">${comparisonText(Number(ce.askQty)||0, Number(pe.askQty)||0, formatQuantity)}</span></div>
+    <div class="pair-comparison-row"><span class="pair-comparison-label">B/A</span><span class="pair-ce">CE ${bidAskRelation(ce.bidQty || 0, ce.askQty || 0)}<br>B:${formatQuantity(ce.bidQty)} A:${formatQuantity(ce.askQty)}</span><span class="pair-pe">PE ${bidAskRelation(pe.bidQty || 0, pe.askQty || 0)}<br>B:${formatQuantity(pe.bidQty)} A:${formatQuantity(pe.askQty)}</span><span class="pair-difference">Ratio: CE ${ceRatio.toFixed(2)} | PE ${peRatio.toFixed(2)}</span></div>
   </div>`;
 }
 
-function renderStrikes(options, strikeTotals, atm){
+function renderStrikes(options, strikeTotals, atm, openingOptions=[]){
   const grid = document.getElementById('strikesGrid');
-  grid.innerHTML = options.map(opt => {
+  const displayOptions = [...options].sort((first, second) => {
+    const tierOrder = { atm: 0, itm1: 1 };
+    const tierDifference = (tierOrder[first.tier] ?? 9) - (tierOrder[second.tier] ?? 9);
+    return tierDifference || (first.type === 'CE' ? -1 : 1);
+  });
+  grid.innerHTML = displayOptions.map(opt => {
+    const opening = openingOptions.find(item => item.label === opt.label) || {};
+    const openingOi = Number(opening.oi) || 0;
+    const currentOi = Number(opt.oi) || 0;
+    const oiChange = currentOi - openingOi;
+    const oiChangePct = openingOi ? (oiChange / openingOi) * 100 : 0;
+    const oiChangeClass = oiChange > 0 ? 'price-up' : oiChange < 0 ? 'price-down' : 'price-flat';
     const strikeInfo = getStrikeTotalsForOption(strikeTotals, opt.strike, opt.type) || {};
     const sig = getSignal(opt);
     const rClass = opt.ratio>1.5?'ratio-bullish':opt.ratio<0.67?'ratio-bearish':'ratio-neutral';
@@ -1226,7 +1280,6 @@ function renderStrikes(options, strikeTotals, atm){
     const oiDifference = getTierOiDifference(options, opt.tier);
     const oiDifferenceClass = oiDifference > 0 ? 'price-up' : oiDifference < 0 ? 'price-down' : 'price-flat';
     const oiDifferenceLabel = oiDifference > 0 ? 'CE HIGHER' : oiDifference < 0 ? 'PE HIGHER' : 'EQUAL';
-    const bidAskRelationLabel = bidAskRelation(opt.bidQty || 0, opt.askQty || 0);
     return `
     <div class="glass strike-card">
       <div class="strike-type-row">
@@ -1236,15 +1289,13 @@ function renderStrikes(options, strikeTotals, atm){
       <div class="strike-name">${opt.strike} ${opt.type}</div>
       <div class="strike-price">₹${opt.price?.toFixed(2)||'--'} <span>${opt.priceChange>=0?'+':''}${opt.priceChange} (${opt.pctChange}%)</span></div>
       <div class="metrics-grid">
-        <div class="metric"><div class="metric-label">Bid Qty</div><div class="metric-value">${(opt.bidQty||0).toLocaleString()}</div></div>
-        <div class="metric"><div class="metric-label">Ask Qty</div><div class="metric-value">${(opt.askQty||0).toLocaleString()}</div></div>
-        <div class="metric ${vClass}"><div class="metric-label">Volume</div><div class="metric-value">${formatIndianUnits(opt.volume)}${opt.volumeSpike ? ' ⚡' : ''}</div></div>
-        <div class="metric"><div class="metric-label">OI</div><div class="metric-value">${formatIndianUnits(opt.oi)}</div></div>
+        <div class="metric"><div class="metric-label">OPENING OI</div><div class="metric-value">${opening.oi ? formatIndianUnits(opening.oi) : 'Waiting for 09:15'}</div></div>
         <div class="metric ${oiDifferenceClass}" style="grid-column:1/-1;"><div class="metric-label">${opt.tier==='atm'?'ATM':'ITM'} CE - PE OI Difference</div><div class="metric-value">${oiDifference >= 0 ? '+' : '-'}${formatIndianUnits(Math.abs(oiDifference))}</div><div class="metric-note">${oiDifferenceLabel} | Current market</div></div>
-        ${renderPairComparison(options, opt.tier)}
+        <div class="metric ${oiChangeClass}" style="grid-column:1/-1;"><div class="metric-label">OI CHANGE FROM OPEN</div><div class="metric-value">${openingOi ? `${oiChange >= 0 ? '+' : '-'}${formatIndianUnits(Math.abs(oiChange))} (${oiChange >= 0 ? '+' : ''}${oiChangePct.toFixed(2)}%)` : 'Waiting for opening capture'}</div><div class="metric-note">${oiChange > 0 ? 'OI increased' : oiChange < 0 ? 'OI decreased' : 'No change'}</div></div>
+        <div class="metric ${vClass}"><div class="metric-label">Volume</div><div class="metric-value">${formatIndianUnits(opt.volume)}${opt.volumeSpike ? ' ⚡' : ''}</div></div>
       </div>
       <div class="metrics-grid" style="margin-top:10px;">
-        <div class="metric ${rClass}" style="grid-column:1/-1;"><div class="metric-label">Bid/Ask Relation</div><div class="metric-value">${bidAskRelationLabel}</div><div class="metric-note">Bid: ${formatIndianUnits(opt.bidQty)} | Ask: ${formatIndianUnits(opt.askQty)} | Ratio: ${opt.ratio}</div></div>
+        <div class="metric" style="grid-column:1/-1;"><div class="metric-label">BID / ASK</div><div class="metric-value">B ${formatQuantity(opt.bidQty)} &nbsp; | &nbsp; A ${formatQuantity(opt.askQty)}</div></div>
         <div class="metric ${pClass}" style="grid-column:1/-1;"><div class="metric-label">Price Action</div><div class="metric-value">${pIcon} ${opt.priceChange>=0?'+':''}${opt.priceChange} pts</div></div>
       </div>
       <span class="signal-pill ${sPill}">${sig}</span>
@@ -1393,6 +1444,35 @@ function addFeed(msg, cls='f-muted'){
   while(feed.children.length>60) feed.removeChild(feed.lastChild);
 }
 
+async function enableNotifications(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'default') await Notification.requestPermission();
+  return Notification.permission === 'granted';
+}
+
+function notifyMarket(spot, previousSpot, marketPulse){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const captures = Array.isArray(marketPulse?.captures) ? marketPulse.captures : [];
+  const latest = captures[captures.length - 1];
+  if(latest && latest.number > S.lastNotifiedCapture){
+    new Notification(`NIFTY ${latest.direction} ${Math.abs(latest.movePoints).toFixed(2)} points`, {
+      body: `50-point capture #${latest.number} saved at ${latest.toTime || '--'} IST`,
+      tag: 'nifty-50-point-capture',
+    });
+    S.lastNotifiedCapture = latest.number;
+    localStorage.setItem('niftyLastCapture', String(latest.number));
+  }
+
+  const now = Date.now();
+  if(now - S.lastLiveNotificationAt < 15000) return;
+  const movement = previousSpot ? spot - previousSpot : 0;
+  new Notification(`NIFTY 50  ${spot.toFixed(2)}`, {
+    body: previousSpot ? `${movement >= 0 ? '▲' : '▼'} ${Math.abs(movement).toFixed(2)} points since last update` : 'Live market data connected',
+    tag: 'nifty-live-price',
+  });
+  S.lastLiveNotificationAt = now;
+}
+
 // ============================================================
 //  REFRESH BAR
 // ============================================================
@@ -1420,15 +1500,17 @@ async function scan(){
   document.getElementById('statusText').style.color = open?'var(--green)':'var(--yellow)';
 
   try {
-    const {spot, atm, options, suggestion} = await fetchMarketData();
+    const {spot, atm, options, suggestion, marketPulse} = await fetchMarketData();
 
     // Update header
     document.getElementById('niftyPrice').textContent = spot.toFixed(2);
-    const chg = parseFloat((spot - (S.niftyPrev||spot)).toFixed(2));
+    const previousSpot = S.niftyPrev;
+    const chg = parseFloat((spot - (previousSpot||spot)).toFixed(2));
     const chgPct = S.niftyPrev>0 ? ((chg/S.niftyPrev)*100).toFixed(3) : '0.000';
     const chgEl = document.getElementById('niftyChange');
     chgEl.textContent = `${chg>=0?'▲':'▼'} ${Math.abs(chg)} (${Math.abs(chgPct)}%)`;
     chgEl.style.color = chg>=0?'var(--green)':'var(--red)';
+    notifyMarket(spot, previousSpot, marketPulse);
     S.niftyPrev = spot;
 
     // ATM bar
@@ -1437,7 +1519,7 @@ async function scan(){
     document.getElementById('itm1CE').textContent    = `${atm-50}`;
     document.getElementById('itm1PE').textContent    = `${atm+50}`;
 
-    renderStrikes(options, suggestion.strikeTotals || [], atm);
+    renderStrikes(options, suggestion.strikeTotals || [], atm, marketPulse?.opening?.options || []);
     const {topSig, topOpt} = renderSignals(options);
     renderAggregateSummary(suggestion);
 
@@ -1469,8 +1551,9 @@ async function scan(){
 // ============================================================
 //  ALGO CONTROLS
 // ============================================================
-function startAlgo(){
+async function startAlgo(){
   if(S.running) return;
+  await enableNotifications();
   S.running=true;
   document.getElementById('btnStart').disabled=true;
   document.getElementById('btnStop').disabled=false;
