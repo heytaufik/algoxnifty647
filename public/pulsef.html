@@ -50,5 +50,31 @@ load();setInterval(load,5000);
 function addWaitingTimes(){document.querySelectorAll('#cards .card[data-placeholder="true"]').forEach(card=>{const metrics=card.querySelector('.metrics');if(metrics&&!metrics.querySelector('.card-times'))metrics.insertAdjacentHTML('afterbegin','<div class="metric card-times"><span class="metric-label">OPEN TIME</span><span class="metric-value">Waiting for 09:15 IST</span></div><div class="metric card-times"><span class="metric-label">50 POINT TIME</span><span class="metric-value">Waiting for +/-50 points</span></div>')})}
 const waitingObserver=new MutationObserver(addWaitingTimes);waitingObserver.observe(document.getElementById('cards'),{childList:true,subtree:true});addWaitingTimes();
 </script>
+<script>
+function renderOpeningCards(pulse, latest){
+  const openingOptions=Array.isArray(pulse?.opening?.options)?pulse.opening.options:[];
+  const capturedOptions=Array.isArray(latest?.options)?latest.options:[];
+  const options=latest?capturedOptions:openingOptions.map(option=>({...option,openingPrice:option.price,currentPrice:option.price,openingOi:option.oi,currentOi:option.oi,openingBidQty:option.bidQty,openingAskQty:option.askQty,currentBidQty:option.bidQty,currentAskQty:option.askQty,oiChange:0,oiChangePct:0,priceChange:0,setup:'OPENING CAPTURE'}));
+  document.getElementById('cards').innerHTML=options.map(option=>{
+    const opening=latest?option:{...option,openingPrice:option.price,openingOi:option.oi,openingBidQty:option.bidQty,openingAskQty:option.askQty};
+    const current=latest?option:opening;
+    const sign=Number(option.oiChange)>=0?'+':'';
+    return `<div class="card glass"><div class="card-head"><span class="contract">${option.label}</span><span class="setup ${latest?setupClass(option.setup):'neutral'}">${latest?option.setup:'OPENING CAPTURE'}</span></div><div class="metrics"><div class="metric"><span class="metric-label">OPEN TIME</span><span class="metric-value">${pulse.opening?.time||'--'} IST</span></div><div class="metric"><span class="metric-label">${latest?'50 POINT TIME':'CAPTURE STATUS'}</span><span class="metric-value">${latest?(latest.toTime||'--')+' IST':'Captured at market start'}</span></div><div class="metric"><span class="metric-label">OPEN PRICE</span><span class="metric-value">Rs ${Number(opening.openingPrice||opening.price||0).toFixed(2)}</span></div><div class="metric"><span class="metric-label">${latest?'MOVE PRICE':'CURRENT PRICE'}</span><span class="metric-value">Rs ${Number(current.currentPrice||current.price||0).toFixed(2)}${latest?` (${Number(option.priceChange)>=0?'+':''}${option.priceChange})`:''}</span></div><div class="metric"><span class="metric-label">OPENING CAPTURE OI</span><span class="metric-value">${units(opening.openingOi||0)}</span></div><div class="metric"><span class="metric-label">OPENING CAPTURE BID / ASK</span><span class="metric-value">B ${units(opening.openingBidQty||0)} | A ${units(opening.openingAskQty||0)}</span></div>${latest?`<div class="metric"><span class="metric-label">MOVE OI</span><span class="metric-value">${units(option.currentOi||0)}</span></div><div class="metric"><span class="metric-label">MOVE BID / ASK</span><span class="metric-value">B ${units(option.currentBidQty||0)} | A ${units(option.currentAskQty||0)}</span></div><div class="metric"><span class="metric-label">OI CHANGE</span><span class="metric-value">${sign}${units(Math.abs(option.oiChange||0))} (${sign}${option.oiChangePct||0}%)</span></div>`:''}</div></div>`;
+  }).join('');
+}
+function renderLatest(pulse){
+  if(!pulse)return;
+  const captures=Array.isArray(pulse.captures)?pulse.captures:[];
+  const latest=captures[captures.length-1];
+  document.getElementById('date').textContent=pulse.date||'--';
+  document.getElementById('opening').textContent=pulse.opening?`${pulse.opening.time} | NIFTY ${Number(pulse.opening.spot).toFixed(2)}`:'WAITING FOR 09:15';
+  document.getElementById('captureCount').textContent=captures.length;
+  document.getElementById('trigger').textContent=latest?`#${latest.number} | ${latest.toTime||'--'} | ${latest.direction} ${Math.abs(latest.movePoints).toFixed(2)} PTS`:'WAITING FOR 50 POINTS';
+  document.getElementById('message').textContent=pulse.opening?(latest?'50-point move captured. Opening strike snapshot retained.':'Opening snapshot captured for all available strikes. Waiting for NIFTY to move 50 points.'):'Start algo from 09:15 IST to capture today\'s opening data.';
+  renderOpeningCards(pulse,latest);
+}
+async function load(){try{const response=await fetch('/api/marketdata');const data=await response.json();if(!data.success)throw new Error(data.message);renderLatest(data.marketPulse)}catch(error){try{const response=await fetch('/api/market-pulse',{cache:'no-store'});const data=await response.json();renderLatest(data.marketPulse)}catch(fallbackError){document.getElementById('message').textContent='Pulse data unavailable. Check server connection.'}}}
+load();setInterval(load,5000);
+</script>
 </body>
 </html>
