@@ -1,10 +1,10 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { TOTP } = require('otpauth');
 const fs = require('fs');
-const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -15,10 +15,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 //  CONFIG — Values come from .env file
 // ============================================================
 const CONFIG = {
-  apiKey: process.env.ANGEL_API_KEY,
-  clientId: process.env.ANGEL_CLIENT_ID,
-  password: process.env.ANGEL_PASSWORD,
-  totpSecret: process.env.ANGEL_TOTP_SECRET,
+  apiKey: process.env.ANGEL_API_KEY?.trim(),
+  clientId: process.env.ANGEL_CLIENT_ID?.trim(),
+  password: process.env.ANGEL_PASSWORD?.trim(),
+  totpSecret: process.env.ANGEL_TOTP_SECRET?.replace(/\s/g, '').trim(),
+  publicIp: process.env.ANGEL_PUBLIC_IP?.trim() || '127.0.0.1',
 };
 
 const ANGEL_BASE = 'https://apiconnect.angelbroking.com';
@@ -210,43 +211,49 @@ function generateTOTP() {
 //  ANGEL ONE LOGIN
 // ============================================================
 async function angelLogin() {
-  try {
-    const totp = generateTOTP();
-    const res = await axios.post(
-      `${ANGEL_BASE}/rest/auth/angelbroking/user/v1/loginByPassword`,
-      {
-        clientcode: CONFIG.clientId,
-        password: CONFIG.password,
-        totp: totp,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-UserType': 'USER',
-          'X-SourceID': 'WEB',
-          'X-ClientLocalIP': '127.0.0.1',
-          'X-ClientPublicIP': '106.193.147.98',
-          'X-MACAddress': '00-00-00-00-00-00',
-          'X-PrivateKey': CONFIG.apiKey,
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const res = await axios.post(
+        `${ANGEL_BASE}/rest/auth/angelbroking/user/v1/loginByPassword`,
+        {
+          clientcode: CONFIG.clientId,
+          password: CONFIG.password,
+          totp: generateTOTP(),
         },
-      }
-    );
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-UserType': 'USER',
+            'X-SourceID': 'WEB',
+            'X-ClientLocalIP': '127.0.0.1',
+            'X-ClientPublicIP': CONFIG.publicIp,
+            'X-MACAddress': '00-00-00-00-00-00',
+            'X-PrivateKey': CONFIG.apiKey,
+          },
+        }
+      );
 
-    if (res.data.status && res.data.data) {
-      SESSION.jwtToken = res.data.data.jwtToken;
-      SESSION.refreshToken = res.data.data.refreshToken;
-      SESSION.loginTime = Date.now();
-      console.log(`[${new Date().toISOString()}] Angel One login successful`);
-      return true;
-    } else {
-      console.error('Login failed:', res.data.message);
-      return false;
+      if (res.data.status && res.data.data) {
+        SESSION.jwtToken = res.data.data.jwtToken;
+        SESSION.refreshToken = res.data.data.refreshToken;
+        SESSION.loginTime = Date.now();
+        console.log(`[${new Date().toISOString()}] Angel One login successful`);
+        return true;
+      }
+
+      console.error(`Login failed (attempt ${attempt}/2):`, res.data.message || res.data.errorcode || 'Unknown response');
+    } catch (err) {
+      const details = err.response?.data?.message || err.response?.data?.errorcode || err.message;
+      console.error(`Login error (attempt ${attempt}/2):`, details);
     }
-  } catch (err) {
-    console.error('Login error:', err.message);
-    return false;
+
+    if (attempt < 2) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
+
+  return false;
 }
 
 // ============================================================
