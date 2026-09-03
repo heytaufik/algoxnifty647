@@ -1275,9 +1275,12 @@ function renderStrikes(options, strikeTotals, atm, openingOptions=[]){
     const tierLabel = opt.tier==='atm'?'ATM':'1 ITM';
     const typeBadge = opt.type==='CE'?'badge-ce':'badge-pe';
     const sPill = sig==='LONG'?'signal-long':sig==='SHORT'?'signal-short':'signal-none';
-    const oiDifference = getTierOiDifference(options, opt.tier);
+    const oiPair = getTierPair(options, opt.tier);
+    const ceOi = Number(oiPair.ce.oi) || 0;
+    const peOi = Number(oiPair.pe.oi) || 0;
+    const oiDifference = ceOi - peOi;
     const oiDifferenceClass = oiDifference > 0 ? 'price-up' : oiDifference < 0 ? 'price-down' : 'price-flat';
-    const oiDifferenceLabel = oiDifference > 0 ? 'CE HIGHER' : oiDifference < 0 ? 'PE HIGHER' : 'EQUAL';
+    const oiDifferenceLabel = oiDifference > 0 ? `CE GREATER BY ${formatIndianUnits(oiDifference)}` : oiDifference < 0 ? `PE GREATER BY ${formatIndianUnits(Math.abs(oiDifference))}` : 'CE AND PE EQUAL';
     return `
     <div class="glass strike-card">
       <div class="strike-type-row">
@@ -1288,7 +1291,9 @@ function renderStrikes(options, strikeTotals, atm, openingOptions=[]){
       <div class="strike-price">₹${opt.price?.toFixed(2)||'--'} <span>${opt.priceChange>=0?'+':''}${opt.priceChange} (${opt.pctChange}%)</span></div>
       <div class="metrics-grid">
         <div class="metric"><div class="metric-label">OPENING OI</div><div class="metric-value">${opening.oi ? formatIndianUnits(opening.oi) : 'Waiting for 09:15'}</div></div>
-        <div class="metric ${oiDifferenceClass}" style="grid-column:1/-1;"><div class="metric-label">${opt.tier==='atm'?'ATM':'ITM'} CE - PE OI Difference</div><div class="metric-value">${oiDifference >= 0 ? '+' : '-'}${formatIndianUnits(Math.abs(oiDifference))}</div><div class="metric-note">${oiDifferenceLabel} | Current market</div></div>
+        <div class="metric"><div class="metric-label">CE OI</div><div class="metric-value pair-ce">${formatIndianUnits(ceOi)}</div></div>
+        <div class="metric"><div class="metric-label">PE OI</div><div class="metric-value pair-pe">${formatIndianUnits(peOi)}</div></div>
+        <div class="metric ${oiDifferenceClass}" style="grid-column:1/-1;"><div class="metric-label">${opt.tier==='atm'?'ATM':'ITM'} OI DIFFERENCE</div><div class="metric-value">${oiDifferenceLabel}</div><div class="metric-note">CE OI: ${formatIndianUnits(ceOi)} | PE OI: ${formatIndianUnits(peOi)}</div></div>
         <div class="metric ${oiChangeClass}" style="grid-column:1/-1;"><div class="metric-label">OI CHANGE FROM OPEN</div><div class="metric-value">${openingOi ? `${oiChange >= 0 ? '+' : '-'}${formatIndianUnits(Math.abs(oiChange))} (${oiChange >= 0 ? '+' : ''}${oiChangePct.toFixed(2)}%)` : 'Waiting for opening capture'}</div><div class="metric-note">${oiChange > 0 ? 'OI increased' : oiChange < 0 ? 'OI decreased' : 'No change'}</div></div>
         <div class="metric ${vClass}"><div class="metric-label">Volume</div><div class="metric-value">${formatIndianUnits(opt.volume)}${opt.volumeSpike ? ' ⚡' : ''}</div></div>
       </div>
